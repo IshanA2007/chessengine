@@ -1,0 +1,3 @@
+/Users/ishanajwani/CLionProjects/chessengine/build-release/CMakeFiles/chessengine.dir
+/Users/ishanajwani/CLionProjects/chessengine/build-release/CMakeFiles/edit_cache.dir
+/Users/ishanajwani/CLionProjects/chessengine/build-release/CMakeFiles/rebuild_cache.dir

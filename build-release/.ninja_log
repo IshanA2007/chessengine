@@ -1,0 +1,13 @@
+# ninja log v7
+1	653	1786336074733377665	CMakeFiles/chessengine.dir/search.cpp.o	6ce4e3f56c4e7a50
+1	703	1786336074733099625	CMakeFiles/chessengine.dir/movegen.cpp.o	4770017958e70268
+1	706	1786336074733203083	CMakeFiles/chessengine.dir/uci.cpp.o	40a048d88905d2e9
+0	725	1786336074732685087	CMakeFiles/chessengine.dir/main.cpp.o	ed85dff68edfe574
+0	833	1786336074732877169	CMakeFiles/chessengine.dir/board.cpp.o	7189f635d862339b
+6	744	1786336095028936389	CMakeFiles/chessengine.dir/search.cpp.o	6ce4e3f56c4e7a50
+5	768	1786336095028063938	CMakeFiles/chessengine.dir/main.cpp.o	ed85dff68edfe574
+5	791	1786336095028809890	CMakeFiles/chessengine.dir/uci.cpp.o	40a048d88905d2e9
+5	797	1786336095028571934	CMakeFiles/chessengine.dir/attacks.cpp.o	77f68ae6dd65489b
+5	800	1786336095028689308	CMakeFiles/chessengine.dir/movegen.cpp.o	4770017958e70268
+5	927	1786336095028422852	CMakeFiles/chessengine.dir/board.cpp.o	7189f635d862339b
+927	1020	1786336095950281024	chessengine	a7322c560655c97e
