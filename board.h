@@ -61,6 +61,18 @@ struct Board {
     }
 
     void make_move(Move m);
+
+    [[nodiscard]] inline Square enemy_king_square() const {
+        return static_cast<Square>(std::countr_zero(piece_bitboards[make_piece(static_cast<Color>(!color_to_move), KING)]));
+    }
+
+    [[nodiscard]] inline Square king_square() const {
+        return static_cast<Square>(std::countr_zero(piece_bitboards[make_piece(color_to_move, KING)]));
+    }
+
+    [[nodiscard]] inline bool last_move_was_legal() const {
+        return !is_square_attacked(enemy_king_square(), color_to_move);
+    }
 };
 
 

@@ -16,3 +16,12 @@
 24	1228	1786340020293414892	CMakeFiles/chessengine.dir/search.cpp.o	6ce4e3f56c4e7a50
 23	1366	1786340020292244719	CMakeFiles/chessengine.dir/board.cpp.o	7189f635d862339b
 1366	1462	1786340021635391490	chessengine	e362c685d3f0eee1
+21	591	1786399028509241196	CMakeFiles/chessengine.dir/eval.cpp.o	ee872c231b37590c
+21	729	1786399028509136069	CMakeFiles/chessengine.dir/search.cpp.o	6ce4e3f56c4e7a50
+21	737	1786399028509022358	CMakeFiles/chessengine.dir/uci.cpp.o	40a048d88905d2e9
+20	744	1786399028508510639	CMakeFiles/chessengine.dir/main.cpp.o	ed85dff68edfe574
+21	774	1786399028508900731	CMakeFiles/chessengine.dir/movegen.cpp.o	4770017958e70268
+20	882	1786399028508761436	CMakeFiles/chessengine.dir/board.cpp.o	7189f635d862339b
+882	977	1786399029370019136	chessengine	e362c685d3f0eee1
+4	581	1786399639792667668	CMakeFiles/chessengine.dir/search.cpp.o	6ce4e3f56c4e7a50
+581	678	1786399640369540941	chessengine	e362c685d3f0eee1

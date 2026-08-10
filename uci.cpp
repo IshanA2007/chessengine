@@ -23,8 +23,7 @@ Move parse_move(const Board& board, const std::string &token) {
         }
         Board board_copy = board;
         board_copy.make_move(m);
-        const auto king_square = static_cast<Square>(std::countr_zero(board_copy.piece_bitboards[make_piece(board.color_to_move, KING)]));
-        if (!board_copy.is_square_attacked(king_square, board_copy.color_to_move)) {
+        if (board_copy.last_move_was_legal()) {
             return m;
         }
     }

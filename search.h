@@ -10,7 +10,7 @@
 
 Move search(const Board& board, const GoLimits &limits);
 
-int minimax(Board &board, int depth);
+int minimax(Board& board, int depth, int alpha, int beta);
 
 Move search_root(const Board& board, int depth);
 

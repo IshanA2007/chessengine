@@ -7,6 +7,7 @@
 #include "board.h"
 
 constexpr int INF_SCORE = 1'000'000'000;
+constexpr int CHECKMATE_SCORE = -100'000;
 
 int eval(Board& board);
 

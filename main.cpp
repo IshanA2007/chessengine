@@ -28,7 +28,8 @@ int main() {
         else if (cmd == "position") { handle_position(board, ss); }
         else if (cmd == "go")       { handle_go(board, ss); }
         else if (cmd == "quit")     { break; }
-        // dev verbs, same loop:
+        //non uci
+        else if (cmd == "perft") { handle_perft(board);}
     }
     return 0;
 }

@@ -257,8 +257,7 @@ uint64_t perft(const Board& board, int depth) {
         const Move move = moves.moves[i];
         Board board_copy = board;
         board_copy.make_move(move);
-        const auto king_square = static_cast<Square>(std::countr_zero(board_copy.piece_bitboards[make_piece(board.color_to_move, KING)]));
-        if (board_copy.is_square_attacked(king_square, board_copy.color_to_move)) {
+        if (!board_copy.last_move_was_legal()) {
             continue;
         }
         nodes += perft(board_copy, depth-1);
@@ -267,3 +266,20 @@ uint64_t perft(const Board& board, int depth) {
     return nodes;
 }
 
+void handle_perft(const Board& board) {
+    for (int i = 0; i <= 5; i++) {
+        Board board_copy = board;
+        const auto start = std::chrono::steady_clock::now();
+
+        const uint64_t nodes = perft(board_copy, i);
+
+        const auto us = std::chrono::duration_cast<std::chrono::microseconds>(
+                            std::chrono::steady_clock::now() - start).count();
+        const uint64_t nps = us > 0 ? nodes * 1'000'000 / us : 0;
+
+        std::cout << "depth " << i
+                  << " nodes " << nodes
+                  << " time " << (us / 1000) << "ms"
+                  << " nps " << nps << std::endl;
+    }
+}
