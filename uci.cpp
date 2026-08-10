@@ -79,7 +79,7 @@ void handle_go(const Board& board, std::istringstream& ss) {
             ss >> limits.binc;
         }
         else if (token == "infinite") {
-            ss >> limits.infinite;
+            limits.infinite = true;
         }
     }
     const Move m = search(board, limits);

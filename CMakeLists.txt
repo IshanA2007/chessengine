@@ -16,4 +16,6 @@ add_executable(chessengine main.cpp
         uci.cpp
         uci.h
         search.cpp
-        search.h)
+        search.h
+        eval.cpp
+        eval.h)
