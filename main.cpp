@@ -6,12 +6,14 @@
 #include "attacks.h"
 #include "movegen.h"
 #include "uci.h"
+#include "zobrist.h"
 
 int main() {
     // UCI talks over a pipe; unbuffered stdout keeps the GUI from waiting on us
     std::cout << std::unitbuf;
 
     init_magics();
+    init_zobrist();
 
     Board board{};
     board.set_from_fen(START_FEN);

@@ -3,25 +3,26 @@
 //
 
 #include "board.h"
+
 #include <iostream>
 #include <sstream>
 
-#include "attacks.h"
-
 #include "moves.h"
 
-constexpr std::array<CastlingRights, 64> rights_mask = []() {
-    std::array<CastlingRights, 64> table{};
+using namespace std;
+
+constexpr std::array<uint64_t, 64> rights_mask = []() {
+    std::array<uint64_t, 64> table{};
     for (auto& mask : table) {
-        mask = static_cast<CastlingRights>(0b1111);
+        mask = 0b1111;
     }
 
-    table[E1] = static_cast<CastlingRights>(0b1100); // ~(WHITE_OO | WHITE_OOO)
-    table[H1] = static_cast<CastlingRights>(0b1110); // ~WHITE_OO
-    table[A1] = static_cast<CastlingRights>(0b1101); // ~WHITE_OOO
-    table[E8] = static_cast<CastlingRights>(0b0011); // ~(BLACK_OO | BLACK_OOO)
-    table[H8] = static_cast<CastlingRights>(0b1011); // ~BLACK_OO
-    table[A8] = static_cast<CastlingRights>(0b0111); // ~BLACK_OOO
+    table[E1] = 0b1100; // ~(WHITE_OO | WHITE_OOO)
+    table[H1] = 0b1110; // ~WHITE_OO
+    table[A1] = 0b1101; // ~WHITE_OOO
+    table[E8] = 0b0011; // ~(BLACK_OO | BLACK_OOO)
+    table[H8] = 0b1011; // ~BLACK_OO
+    table[A8] = 0b0111; // ~BLACK_OOO
 
     return table;
 }();
@@ -114,6 +115,7 @@ void Board::set_from_fen(const string& fen) {
         occupancy_bitboards[color] |= piece_bitboards[i];
         occupancy_bitboards[BOTH] |= piece_bitboards[i];
     }
+    hash = compute_hash_from_scratch();
 }
 
 void Board::print() const {
@@ -198,7 +200,13 @@ void Board::make_move(const Move m) {
     put_piece(placed, to);
 
     //handle en passant sq
+    if (en_passant_square != NO_SQUARE) {
+        hash ^= zobrist_ep_file[file_of(en_passant_square)];
+    }
     en_passant_square = flag == DOUBLE_PUSH ? static_cast<Square>(to - offset) : NO_SQUARE;
+    if (en_passant_square != NO_SQUARE) {
+        hash ^= zobrist_ep_file[file_of(en_passant_square)];
+    }
     //castling rights
     if (flag == CASTLE_KINGSIDE) {
         if (us == WHITE) {
@@ -220,7 +228,9 @@ void Board::make_move(const Move m) {
             put_piece(BR, D8);
         }
     }
+    uint8_t old_rights = castling_rights;
     castling_rights &= (rights_mask[from] & rights_mask[to]);
+    hash ^= zobrist_castling[old_rights] ^ zobrist_castling[castling_rights];
 
     //tick clocks
     if (us == BLACK) {
@@ -235,4 +245,25 @@ void Board::make_move(const Move m) {
 
     //flip side to move
     color_to_move = us == WHITE ? BLACK : WHITE;
+    hash ^= zobrist_side;
+
+    //assert(hash == compute_hash_from_scratch());
+}
+
+uint64_t Board::compute_hash_from_scratch() const {
+    uint64_t h = 0;
+
+    for (int sq = 0; sq < 64; sq++)
+        if (mailbox[sq] != NO_PIECE)
+            h ^= zobrist_pieces[mailbox[sq]][sq];
+
+    h ^= zobrist_castling[castling_rights];
+
+    if (en_passant_square != NO_SQUARE)
+        h ^= zobrist_ep_file[file_of(en_passant_square)];
+
+    if (color_to_move == BLACK)
+        h ^= zobrist_side;
+
+    return h;
 }

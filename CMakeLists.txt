@@ -18,4 +18,6 @@ add_executable(chessengine main.cpp
         search.cpp
         search.h
         eval.cpp
-        eval.h)
+        eval.h
+        zobrist.cpp
+        zobrist.h)

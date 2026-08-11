@@ -9,10 +9,10 @@
 #include "attacks.h"
 #include "moves.h"
 #include "types.h"
-
-using namespace std;
+#include "zobrist.h"
 
 struct Board {
+    uint64_t hash;
     Bitboard piece_bitboards[12];
     Bitboard occupancy_bitboards[3];
 
@@ -30,7 +30,7 @@ struct Board {
     // necessary for FEN extraction
     uint16_t fullmove_number;
 
-    void set_from_fen(const string& fen);
+    void set_from_fen(const std::string& fen);
 
     void print() const;
 
@@ -50,6 +50,7 @@ struct Board {
         piece_bitboards[piece] |= (1ULL << square);
         occupancy_bitboards[color_of(piece)] |= (1ULL << square);
         occupancy_bitboards[BOTH] |= (1ULL << square);
+        hash ^= zobrist_pieces[piece][square];
     }
 
     inline void remove_piece(const Square square) {
@@ -58,6 +59,7 @@ struct Board {
         piece_bitboards[piece] ^= (1ULL << square);
         occupancy_bitboards[color_of(piece)] ^= (1ULL << square);
         occupancy_bitboards[BOTH] ^= (1ULL << square);
+        hash ^= zobrist_pieces[piece][square];
     }
 
     void make_move(Move m);
@@ -73,6 +75,8 @@ struct Board {
     [[nodiscard]] inline bool last_move_was_legal() const {
         return !is_square_attacked(enemy_king_square(), color_to_move);
     }
+
+    [[nodiscard]] uint64_t compute_hash_from_scratch() const;
 };
 
 
