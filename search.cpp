@@ -11,6 +11,8 @@
 #include "movegen.h"
 
 static uint64_t g_nodes = 0;
+static uint64_t g_history[1024];
+static int g_hist_count = 0;
 static std::chrono::steady_clock::time_point g_search_start;
 
 static int64_t elapsed_ms() {
@@ -18,9 +20,17 @@ static int64_t elapsed_ms() {
         std::chrono::steady_clock::now() - g_search_start).count();
 }
 
-
 int minimax(Board& board, const int depth, int alpha, int beta) {
     g_nodes++;
+
+    if (board.fifty_clock >= 100) {
+        return 0;
+    }
+    for (int k = g_hist_count - 3; k >= std::max(0, g_hist_count - 1 - board.fifty_clock); k-=2) {
+        if (g_history[k] == board.hash) {
+            return 0; //draw
+        }
+    }
     if (depth == 0) {
         return eval(board);
     }
@@ -55,8 +65,9 @@ int minimax(Board& board, const int depth, int alpha, int beta) {
             continue;
         }
         legal++;
+        g_history[g_hist_count++] = board_copy.hash;
         int move_score = -minimax(board_copy, depth - 1, -beta, -alpha);
-
+        g_hist_count--;
         best_score = std::max(move_score, best_score);
 
         if (move_score >= beta) {
@@ -101,10 +112,13 @@ Move search_root(const Board& board, const int depth) {
         const Move m = moves.moves[i];
         Board board_copy = board;
         board_copy.make_move(m);
+
         if (!board_copy.last_move_was_legal()) {
             continue;
         }
-        int score = -minimax(board_copy, depth-1, -INF_SCORE, -alpha);
+        g_history[g_hist_count++] = board_copy.hash;
+        const int score = -minimax(board_copy, depth-1, -INF_SCORE, -alpha);
+        g_hist_count--;
         if (score > alpha) {
             alpha = score;
             best_move = m;
@@ -137,6 +151,15 @@ Move search(const Board& board, const GoLimits& limits) {
         if (budget_ms > 0 && elapsed_ms() > budget_ms / 2) break;
     }
     return best_move;
+}
+
+void history_reset(const uint64_t root_hash) {
+    g_hist_count = 0;
+    g_history[g_hist_count++] = root_hash;
+}
+
+void history_push(const uint64_t h) {
+    g_history[g_hist_count++] = h;
 }
 
 

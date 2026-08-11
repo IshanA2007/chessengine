@@ -43,15 +43,17 @@ void handle_position(Board& board, std::istringstream& ss) {
         while (ss >> token && token != "moves") {
             fen += token + " ";
         }
-        fen.pop_back();
+        if (!fen.empty()) fen.pop_back();
         board.set_from_fen(fen);
     }
+    history_reset(board.hash);
     while (ss >> token) {
         const Move m = parse_move(board, token);
         if (m == NO_MOVE) {
             std::cout << "bad move: " << token << "\n"; break;
         }
         board.make_move(m);
+        history_push(board.hash);
     }
 }
 

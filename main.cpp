@@ -5,6 +5,7 @@
 #include "bitboard.h"
 #include "attacks.h"
 #include "movegen.h"
+#include "search.h"
 #include "uci.h"
 #include "zobrist.h"
 
@@ -26,7 +27,7 @@ int main() {
 
         if (cmd == "uci")      { std::cout << "id name FishBot\nid author Ishan\nuciok\n"; }
         else if (cmd == "isready")  { std::cout << "readyok\n"; }
-        else if (cmd == "ucinewgame") { board.set_from_fen(START_FEN); }
+        else if (cmd == "ucinewgame") { board.set_from_fen(START_FEN); history_reset(board.hash);}
         else if (cmd == "position") { handle_position(board, ss); }
         else if (cmd == "go")       { handle_go(board, ss); }
         else if (cmd == "quit")     { break; }
