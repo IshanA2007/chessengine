@@ -6,23 +6,30 @@
 
 int eval(const Board &board) {
 
-    int white_score = 0;
-    int black_score = 0;
+    int middlegaminess[2] = {0, 0};
+    int endgaminess[2] = {0, 0};
+    int game_phase = 0;
 
-    for (int piece = WP; piece <= WK; piece++) {
-        const int count = std::popcount(board.piece_bitboards[piece]);
-        white_score += count * piece_values[type_of(static_cast<Colored_Piece>(piece))];
+    for (int piece = WP; piece <= BK; piece++) {
+        const Color c = color_of(static_cast<Colored_Piece>(piece));
+        const Piece p = type_of(static_cast<Colored_Piece>(piece));
+
+        Bitboard piece_bb = board.piece_bitboards[piece];
+        while (piece_bb) {
+            const int square  = std::countr_zero(piece_bb);
+            piece_bb &= piece_bb - 1;
+            const int pst_idx = (c == WHITE) ? (square ^ 56) : square;
+            middlegaminess[c] += mg_value[p] + mg_table[p][pst_idx];
+            endgaminess[c] += eg_value[p] + eg_table[p][pst_idx];
+            game_phase += game_phase_inc[p];
+        }
     }
 
-    for (int piece = BP; piece <= BK; piece++) {
-        const int count = std::popcount(board.piece_bitboards[piece]);
-        black_score += count * piece_values[type_of(static_cast<Colored_Piece>(piece))];
-    }
-
-    return board.color_to_move == WHITE
-        ? white_score - black_score
-        : black_score - white_score;
-
+    const Color us   = board.color_to_move;
+    const int mg_score = middlegaminess[us] - middlegaminess[!us];
+    const int eg_score = endgaminess[us] - endgaminess[!us];
+    const int mg_phase = std::min(game_phase, 24);
+    return (mg_score * mg_phase + eg_score * (24 - mg_phase)) / 24;
 }
 
 int score_of(const Board &board, const Move m) {
