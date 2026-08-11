@@ -20,7 +20,58 @@ static int64_t elapsed_ms() {
         std::chrono::steady_clock::now() - g_search_start).count();
 }
 
-int minimax(Board& board, const int depth, int alpha, int beta) {
+int quiescence(const Board &board, int alpha, const int beta) {
+    g_nodes++;
+    const int cur_eval = eval(board);
+
+    if (cur_eval >= beta) {
+        return cur_eval;
+    }
+
+    if (cur_eval > alpha) {
+        alpha = cur_eval;
+    }
+
+    MoveList moves;
+    generate_captures(board, moves);
+    //MVV-LVA
+    int scores[256];
+    for (int i = 0; i < moves.count; i++)
+        scores[i] = score_of(board, moves.moves[i]);
+
+    for (int i = 0; i < moves.count; i++) {
+        //selection sort best move into i
+        int best = i;
+        for (int j = i+1; j < moves.count; j++) {
+            if (scores[j] > scores[best]) {
+                best = j;
+            }
+        }
+        std::swap(moves.moves[i], moves.moves[best]);
+        std::swap(scores[i], scores[best]);
+
+
+        const Move m = moves.moves[i];
+        Board board_copy = board;
+        board_copy.make_move(m);
+        if (!board_copy.last_move_was_legal()) {
+            continue;
+        }
+        int score = -quiescence(board_copy, -beta, -alpha);
+        if (score >= beta) {
+            return score;
+        }
+        if (score > alpha) {
+            alpha = score;
+        }
+    }
+    return alpha;
+
+
+}
+
+
+int minimax(const Board& board, const int depth, int alpha, int beta) {
     g_nodes++;
 
     if (board.fifty_clock >= 100) {
@@ -32,7 +83,7 @@ int minimax(Board& board, const int depth, int alpha, int beta) {
         }
     }
     if (depth == 0) {
-        return eval(board);
+        return quiescence(board, alpha, beta);
     }
 
     MoveList moves;
