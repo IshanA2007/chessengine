@@ -30,7 +30,24 @@ int minimax(Board& board, const int depth, int alpha, int beta) {
     int legal = 0;
     int best_score = -INF_SCORE;
 
+    //MVV LVA
+    int scores[256];
+    for (int i = 0; i < moves.count; i++)
+        scores[i] = score_of(board, moves.moves[i]);
+
     for (int i = 0; i<moves.count; i++) {
+
+        //selection sort best move into i
+        int best = i;
+        for (int j = i+1; j < moves.count; j++) {
+            if (scores[j] > scores[best]) {
+                best = j;
+            }
+        }
+        std::swap(moves.moves[i], moves.moves[best]);
+        std::swap(scores[i], scores[best]);
+
+
         const Move m = moves.moves[i];
         Board board_copy = board;
         board_copy.make_move(m);
@@ -63,7 +80,24 @@ Move search_root(const Board& board, const int depth) {
     generate_moves(board, moves);
     Move best_move = NO_MOVE;
     int alpha = -INF_SCORE;
+
+    //MVV LVA
+    int scores[256];
+    for (int i = 0; i < moves.count; i++)
+        scores[i] = score_of(board, moves.moves[i]);
+
     for (int i = 0; i < moves.count; i++) {
+
+        //selection sort best move into i
+        int best = i;
+        for (int j = i+1; j < moves.count; j++) {
+            if (scores[j] > scores[best]) {
+                best = j;
+            }
+        }
+        std::swap(moves.moves[i], moves.moves[best]);
+        std::swap(scores[i], scores[best]);
+
         const Move m = moves.moves[i];
         Board board_copy = board;
         board_copy.make_move(m);
@@ -95,13 +129,12 @@ Move search(const Board& board, const GoLimits& limits) {
     }
 
 
-    const int max_depth = limits.depth > 0 ? limits.depth : 6;
+    const int max_depth = limits.depth > 0 ? limits.depth : 12;
     Move best_move = NO_MOVE;
     std::cout << "info string budget " << budget_ms << " elapsed " << elapsed_ms() << std::endl;
     for (int d = 1; d <= max_depth; d++) {
         best_move = search_root(board, d);
         if (budget_ms > 0 && elapsed_ms() > budget_ms / 2) break;
-
     }
     return best_move;
 }

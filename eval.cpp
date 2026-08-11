@@ -4,15 +4,7 @@
 
 #include "eval.h"
 
-int eval(Board &board) {
-    static constexpr int piece_values[6] = {
-        100,   // PAWN
-        320,   // KNIGHT
-        330,   // BISHOP
-        500,   // ROOK
-        900,   // QUEEN
-        0      // KING — not counted; game ends before material matters
-    };
+int eval(const Board &board) {
 
     int white_score = 0;
     int black_score = 0;
@@ -31,4 +23,13 @@ int eval(Board &board) {
         ? white_score - black_score
         : black_score - white_score;
 
+}
+
+int score_of(const Board &board, const Move m) {
+    if (!is_capture(m)) {
+        return 0;
+    }
+    const int attacker = type_of(board.mailbox[from_square(m)]);
+    const int victim = flags(m) == EN_PASSANT ? PAWN : type_of(board.mailbox[to_square(m)]);
+    return 10 * piece_values[victim] - piece_values[attacker] + 100000;
 }
