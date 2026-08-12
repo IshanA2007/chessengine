@@ -64,6 +64,8 @@ struct Board {
 
     void make_move(Move m);
 
+    void make_null_move();
+
     [[nodiscard]] inline Square enemy_king_square() const {
         return static_cast<Square>(std::countr_zero(piece_bitboards[make_piece(static_cast<Color>(!color_to_move), KING)]));
     }

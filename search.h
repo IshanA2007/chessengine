@@ -12,8 +12,6 @@ int quiescence(const Board& board, int alpha, int beta);
 
 Move search(const Board& board, const GoLimits &limits);
 
-int minimax(const Board& board, int depth, int alpha, int beta, int ply);
-
 Move search_root(const Board& board, int depth);
 
 void history_reset(uint64_t root_hash);

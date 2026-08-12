@@ -116,7 +116,7 @@ int quiescence(const Board &board, int alpha, const int beta) {
 }
 
 
-int minimax(const Board& board, const int depth, int alpha, const int beta, const int ply) {
+static int minimax(const Board& board, const int depth, int alpha, const int beta, const int ply, const bool can_null) {
     g_nodes++;
 
     if (board.fifty_clock >= 100) {
@@ -135,8 +135,25 @@ int minimax(const Board& board, const int depth, int alpha, const int beta, cons
     if (tt_probe(board.hash, depth, alpha_original, beta, tt_score, tt_move)) {
         return tt_score;
     }
-    if (depth == 0) {
+    if (depth <= 0) {
         return quiescence(board, alpha, beta);
+    }
+
+    Color us = board.color_to_move;
+    const bool has_pieces =
+    (board.piece_bitboards[make_piece(us, KNIGHT)] |
+     board.piece_bitboards[make_piece(us, BISHOP)] |
+     board.piece_bitboards[make_piece(us, ROOK)]   |
+     board.piece_bitboards[make_piece(us, QUEEN)]) != 0;
+
+    //null-move
+    if (can_null && depth >= 3 && !board.is_square_attacked(board.king_square(), static_cast<Color>(!us)) && has_pieces){
+        Board board_copy = board;
+        board_copy.make_null_move();
+        const int score = -minimax(board_copy, depth - 3, -beta, -beta + 1, ply + 1, false);
+        if (score >= beta) {
+            return score;
+        }
     }
 
     MoveList moves;
@@ -170,7 +187,7 @@ int minimax(const Board& board, const int depth, int alpha, const int beta, cons
         }
         legal++;
         g_history[g_hist_count++] = board_copy.hash;
-        int move_score = -minimax(board_copy, depth - 1, -beta, -alpha, ply+1);
+        int move_score = -minimax(board_copy, depth - 1, -beta, -alpha, ply+1, true);
         g_hist_count--;
         if (move_score > best_score) {
             best_score = move_score;
@@ -183,7 +200,7 @@ int minimax(const Board& board, const int depth, int alpha, const int beta, cons
                     killers[ply][1] = killers[ply][0];
                     killers[ply][0] = m;
                 }
-                Color us = board.color_to_move;
+
                 history[us][from_square(m)][to_square(m)] += depth * depth;
                 if (history[us][from_square(m)][to_square(m)] > HISTORY_MAX) {
                     age_history();
@@ -215,9 +232,13 @@ Move search_root(const Board& board, const int depth) {
     Move tt_move = NO_MOVE; int ignored_score;
     tt_probe(board.hash, 1000, -INF_SCORE, INF_SCORE, ignored_score, tt_move);
 
+
+
     //MVV LVA
     int scores[256];
     score_moves(board, moves, scores, tt_move, 0);
+
+
 
 
     for (int i = 0; i < moves.count; i++) {
@@ -240,7 +261,7 @@ Move search_root(const Board& board, const int depth) {
             continue;
         }
         g_history[g_hist_count++] = board_copy.hash;
-        const int score = -minimax(board_copy, depth-1, -INF_SCORE, -alpha, 1);
+        const int score = -minimax(board_copy, depth-1, -INF_SCORE, -alpha, 1, true);
         g_hist_count--;
         if (score > alpha) {
             alpha = score;

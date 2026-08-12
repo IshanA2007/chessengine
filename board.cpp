@@ -250,6 +250,18 @@ void Board::make_move(const Move m) {
     //assert(hash == compute_hash_from_scratch());
 }
 
+void Board::make_null_move() {
+    const Color us = color_to_move;
+    //flip side to move
+    color_to_move = us == WHITE ? BLACK : WHITE;
+    hash ^= zobrist_side;
+
+    if (en_passant_square != NO_SQUARE) {
+        hash ^= zobrist_ep_file[file_of(en_passant_square)];
+    }
+    en_passant_square = NO_SQUARE;
+}
+
 uint64_t Board::compute_hash_from_scratch() const {
     uint64_t h = 0;
 
