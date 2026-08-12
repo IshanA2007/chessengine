@@ -25,7 +25,7 @@ int eval(const Board &board) {
         }
     }
 
-    const Color us   = board.color_to_move;
+    const Color us = board.color_to_move;
     const int mg_score = middlegaminess[us] - middlegaminess[!us];
     const int eg_score = endgaminess[us] - endgaminess[!us];
     const int mg_phase = std::min(game_phase, 24);

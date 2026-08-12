@@ -20,4 +20,6 @@ add_executable(chessengine main.cpp
         eval.cpp
         eval.h
         zobrist.cpp
-        zobrist.h)
+        zobrist.h
+        transposition.cpp
+        transposition.h)

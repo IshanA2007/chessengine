@@ -8,6 +8,7 @@
 
 constexpr int INF_SCORE = 1'000'000'000;
 constexpr int CHECKMATE_SCORE = -100'000;
+constexpr int TT_BONUS_SCORE = 1'000'000;
 
 static constexpr int piece_values[6] = {
     100,   // PAWN

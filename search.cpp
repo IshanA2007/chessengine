@@ -9,6 +9,7 @@
 
 #include "eval.h"
 #include "movegen.h"
+#include "transposition.h"
 
 static uint64_t g_nodes = 0;
 static uint64_t g_history[1024];
@@ -71,7 +72,7 @@ int quiescence(const Board &board, int alpha, const int beta) {
 }
 
 
-int minimax(const Board& board, const int depth, int alpha, int beta) {
+int minimax(const Board& board, const int depth, int alpha, const int beta, const int ply) {
     g_nodes++;
 
     if (board.fifty_clock >= 100) {
@@ -82,6 +83,14 @@ int minimax(const Board& board, const int depth, int alpha, int beta) {
             return 0; //draw
         }
     }
+
+    const int alpha_original = alpha;
+    Move tt_move = NO_MOVE;
+    int tt_score;
+
+    if (tt_probe(board.hash, depth, alpha_original, beta, tt_score, tt_move)) {
+        return tt_score;
+    }
     if (depth == 0) {
         return quiescence(board, alpha, beta);
     }
@@ -90,11 +99,21 @@ int minimax(const Board& board, const int depth, int alpha, int beta) {
     generate_moves(board, moves);
     int legal = 0;
     int best_score = -INF_SCORE;
+    Move best_move = NO_MOVE;
 
     //MVV LVA
     int scores[256];
     for (int i = 0; i < moves.count; i++)
         scores[i] = score_of(board, moves.moves[i]);
+
+    if (tt_move) {
+        for (int i = 0; i<moves.count; i++) {
+            if (moves.moves[i] == tt_move) {
+                scores[i] = TT_BONUS_SCORE;
+                break;
+            }
+        }
+    }
 
     for (int i = 0; i<moves.count; i++) {
 
@@ -117,9 +136,12 @@ int minimax(const Board& board, const int depth, int alpha, int beta) {
         }
         legal++;
         g_history[g_hist_count++] = board_copy.hash;
-        int move_score = -minimax(board_copy, depth - 1, -beta, -alpha);
+        int move_score = -minimax(board_copy, depth - 1, -beta, -alpha, ply+1);
         g_hist_count--;
-        best_score = std::max(move_score, best_score);
+        if (move_score > best_score) {
+            best_score = move_score;
+            best_move = m;
+        }
 
         if (move_score >= beta) {
             break;
@@ -132,6 +154,8 @@ int minimax(const Board& board, const int depth, int alpha, int beta) {
         const bool in_check = board.is_square_attacked(board.king_square(), static_cast<Color>(!board.color_to_move));
         return in_check ? CHECKMATE_SCORE - depth : 0;
     }
+
+    tt_store(board.hash, depth, best_score, best_move, alpha_original, beta);
 
     return best_score;
 }
@@ -147,6 +171,19 @@ Move search_root(const Board& board, const int depth) {
     int scores[256];
     for (int i = 0; i < moves.count; i++)
         scores[i] = score_of(board, moves.moves[i]);
+
+    Move tt_move = NO_MOVE; int ignored_score;
+    tt_probe(board.hash, 1000, -INF_SCORE, INF_SCORE, ignored_score, tt_move);
+
+    if (tt_move) {
+        for (int i = 0; i<moves.count; i++) {
+            if (moves.moves[i] == tt_move) {
+                scores[i] = TT_BONUS_SCORE;
+                break;
+            }
+        }
+    }
+
 
     for (int i = 0; i < moves.count; i++) {
 
@@ -168,13 +205,17 @@ Move search_root(const Board& board, const int depth) {
             continue;
         }
         g_history[g_hist_count++] = board_copy.hash;
-        const int score = -minimax(board_copy, depth-1, -INF_SCORE, -alpha);
+        const int score = -minimax(board_copy, depth-1, -INF_SCORE, -alpha, 1);
         g_hist_count--;
         if (score > alpha) {
             alpha = score;
             best_move = m;
         }
     }
+    if (best_move) {
+        tt_store(board.hash, depth, alpha, best_move, -INF_SCORE, INF_SCORE);
+    }
+
     std::cout << "info depth " << depth << " nodes " << g_nodes << " score cp " << alpha << " pv " << move_to_string(best_move) << std::endl;
     return best_move;
 }
