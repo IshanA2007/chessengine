@@ -146,8 +146,11 @@ static int minimax(const Board& board, const int depth, int alpha, const int bet
      board.piece_bitboards[make_piece(us, ROOK)]   |
      board.piece_bitboards[make_piece(us, QUEEN)]) != 0;
 
+    bool in_check = board.is_square_attacked(board.king_square(), static_cast<Color>(!us));
+
+
     //null-move
-    if (can_null && depth >= 3 && !board.is_square_attacked(board.king_square(), static_cast<Color>(!us)) && has_pieces){
+    if (can_null && depth >= 3 && !in_check && has_pieces){
         Board board_copy = board;
         board_copy.make_null_move();
         const int score = -minimax(board_copy, depth - 3, -beta, -beta + 1, ply + 1, false);
@@ -187,7 +190,23 @@ static int minimax(const Board& board, const int depth, int alpha, const int bet
         }
         legal++;
         g_history[g_hist_count++] = board_copy.hash;
-        int move_score = -minimax(board_copy, depth - 1, -beta, -alpha, ply+1, true);
+
+        int move_score = 0;
+
+        //late-move reduction
+        bool needs_full_search = true;
+        if (i >= 4 && depth >= 3 && !is_capture(m) && !is_promotion(m) && !in_check && !board_copy.is_square_attacked(board_copy.king_square(), us)) { //late and not too shallow
+            constexpr int red = 1; //tune later this is naive
+            move_score = -minimax(board_copy, depth-1-red, -beta, -alpha, ply+1, true);
+            if (move_score <= alpha) {
+                needs_full_search = false;
+            }
+        }
+
+        if (needs_full_search) {
+            move_score = -minimax(board_copy, depth - 1, -beta, -alpha, ply+1, true);
+        }
+
         g_hist_count--;
         if (move_score > best_score) {
             best_score = move_score;
@@ -213,7 +232,6 @@ static int minimax(const Board& board, const int depth, int alpha, const int bet
     }
 
     if (!legal) {
-        const bool in_check = board.is_square_attacked(board.king_square(), static_cast<Color>(!board.color_to_move));
         return in_check ? CHECKMATE_SCORE - depth : 0;
     }
 
