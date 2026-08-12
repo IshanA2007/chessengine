@@ -142,5 +142,5 @@ inline constexpr int eg_table[6][64] = {
 
 int eval(const Board& board);
 
-int score_of(const Board& board, Move m);
+int mvv_score_of(const Board& board, Move m);
 #endif //CHESSENGINE_EVAL_H

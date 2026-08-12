@@ -32,11 +32,18 @@ int eval(const Board &board) {
     return (mg_score * mg_phase + eg_score * (24 - mg_phase)) / 24;
 }
 
-int score_of(const Board &board, const Move m) {
+int mvv_score_of(const Board &board, const Move m) {
+
+    if (is_promotion(m)) {
+        int score = 100'000 + 10 * piece_values[promotion_of(m)];
+        if (is_capture(m))
+            score += piece_values[type_of(board.mailbox[to_square(m)])];
+        return score;
+    }
     if (!is_capture(m)) {
         return 0;
     }
     const int attacker = type_of(board.mailbox[from_square(m)]);
     const int victim = flags(m) == EN_PASSANT ? PAWN : type_of(board.mailbox[to_square(m)]);
-    return 10 * piece_values[victim] - piece_values[attacker] + 100000;
+    return 10 * piece_values[victim] - piece_values[attacker] + 100'000;
 }

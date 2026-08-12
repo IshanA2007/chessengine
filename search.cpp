@@ -16,9 +16,53 @@ static uint64_t g_history[1024];
 static int g_hist_count = 0;
 static std::chrono::steady_clock::time_point g_search_start;
 
+static constexpr int MAX_PLY = 128;
+static constexpr int HISTORY_MAX = 16'000;
+static Move killers[MAX_PLY][2];
+static int history[2][64][64];
+
+static void age_history() {
+    for (auto& color_plane : history)
+        for (auto& from_row : color_plane)
+            for (int& h : from_row)
+                h /= 2;
+}
+
+static void clear_killers() {
+    for (auto& ply_killers : killers) {
+        ply_killers[0] = NO_MOVE;
+        ply_killers[1] = NO_MOVE;
+    }
+}
+
+static void clear_history() {
+    std::memset(history, 0, sizeof(history));
+}
+
 static int64_t elapsed_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - g_search_start).count();
+}
+
+static void score_moves(const Board& board, const MoveList& moves, int* scores, const Move tt_move, const int ply) {
+    for (int i = 0; i < moves.count; i++) {
+        Move m = moves.moves[i];
+        if (m == tt_move) {
+            scores[i] = TT_BONUS_SCORE;
+        }
+        else if (is_capture(m) || is_promotion(m)) {
+            scores[i] = mvv_score_of(board, m);
+        }
+        else if (m == killers[ply][0]) {
+            scores[i] = 90'000;
+        }
+        else if (m == killers[ply][1]) {
+            scores[i] = 89'999;
+        }
+        else {
+            scores[i] = history[board.color_to_move][from_square(m)][to_square(m)];
+        }
+    }
 }
 
 int quiescence(const Board &board, int alpha, const int beta) {
@@ -38,7 +82,7 @@ int quiescence(const Board &board, int alpha, const int beta) {
     //MVV-LVA
     int scores[256];
     for (int i = 0; i < moves.count; i++)
-        scores[i] = score_of(board, moves.moves[i]);
+        scores[i] = mvv_score_of(board, moves.moves[i]);
 
     for (int i = 0; i < moves.count; i++) {
         //selection sort best move into i
@@ -101,19 +145,9 @@ int minimax(const Board& board, const int depth, int alpha, const int beta, cons
     int best_score = -INF_SCORE;
     Move best_move = NO_MOVE;
 
-    //MVV LVA
+    //move ordering (mvv lva, transposition, killer moves, history)
     int scores[256];
-    for (int i = 0; i < moves.count; i++)
-        scores[i] = score_of(board, moves.moves[i]);
-
-    if (tt_move) {
-        for (int i = 0; i<moves.count; i++) {
-            if (moves.moves[i] == tt_move) {
-                scores[i] = TT_BONUS_SCORE;
-                break;
-            }
-        }
-    }
+    score_moves(board, moves, scores, tt_move, ply);
 
     for (int i = 0; i<moves.count; i++) {
 
@@ -144,6 +178,17 @@ int minimax(const Board& board, const int depth, int alpha, const int beta, cons
         }
 
         if (move_score >= beta) {
+            if (!is_capture(m) && !is_promotion(m)) {
+                if (killers[ply][0] != m) {
+                    killers[ply][1] = killers[ply][0];
+                    killers[ply][0] = m;
+                }
+                Color us = board.color_to_move;
+                history[us][from_square(m)][to_square(m)] += depth * depth;
+                if (history[us][from_square(m)][to_square(m)] > HISTORY_MAX) {
+                    age_history();
+                }
+            }
             break;
         }
 
@@ -167,22 +212,12 @@ Move search_root(const Board& board, const int depth) {
     Move best_move = NO_MOVE;
     int alpha = -INF_SCORE;
 
-    //MVV LVA
-    int scores[256];
-    for (int i = 0; i < moves.count; i++)
-        scores[i] = score_of(board, moves.moves[i]);
-
     Move tt_move = NO_MOVE; int ignored_score;
     tt_probe(board.hash, 1000, -INF_SCORE, INF_SCORE, ignored_score, tt_move);
 
-    if (tt_move) {
-        for (int i = 0; i<moves.count; i++) {
-            if (moves.moves[i] == tt_move) {
-                scores[i] = TT_BONUS_SCORE;
-                break;
-            }
-        }
-    }
+    //MVV LVA
+    int scores[256];
+    score_moves(board, moves, scores, tt_move, 0);
 
 
     for (int i = 0; i < moves.count; i++) {
@@ -223,6 +258,9 @@ Move search_root(const Board& board, const int depth) {
 Move search(const Board& board, const GoLimits& limits) {
     g_nodes = 0;
     g_search_start = std::chrono::steady_clock::now();
+
+    clear_history();
+    clear_killers();
 
     int64_t budget_ms = -1;
     if (limits.movetime > 0) {
