@@ -4,7 +4,6 @@
 
 #ifndef CHESSENGINE_TYPES_H
 #define CHESSENGINE_TYPES_H
-#include <cstdint>
 #include <string>
 
 
@@ -34,7 +33,7 @@ enum Piece {
     KING
 };
 
-enum Colored_Piece {
+enum Colored_Piece : uint8_t {
     WP,
     WN,
     WB,

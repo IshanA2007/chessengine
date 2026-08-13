@@ -2,7 +2,6 @@
 #include <sstream>
 
 #include "board.h"
-#include "bitboard.h"
 #include "attacks.h"
 #include "movegen.h"
 #include "search.h"

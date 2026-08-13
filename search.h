@@ -8,11 +8,11 @@
 #include "uci.h"
 #include "board.h"
 
-int quiescence(const Board& board, int alpha, int beta);
+int quiescence(Board& board, int alpha, int beta);
 
 Move search(const Board& board, const GoLimits &limits);
 
-Move search_root(const Board& board, int depth);
+Move search_root(Board& board, int depth);
 
 void history_reset(uint64_t root_hash);
 

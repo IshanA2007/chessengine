@@ -21,9 +21,10 @@ Move parse_move(const Board& board, const std::string &token) {
         if (move_to_string(m) != token) {
             continue;
         }
-        Board board_copy = board;
-        board_copy.make_move(m);
-        if (board_copy.last_move_was_legal()) {
+        Board temp = board;
+        Undo u;
+        temp.make_move(m, u);
+        if (temp.last_move_was_legal()) {
             return m;
         }
     }
@@ -52,7 +53,8 @@ void handle_position(Board& board, std::istringstream& ss) {
         if (m == NO_MOVE) {
             std::cout << "bad move: " << token << "\n"; break;
         }
-        board.make_move(m);
+        Undo u;
+        board.make_move(m, u);
         history_push(board.hash);
     }
 }

@@ -10,6 +10,19 @@
 #include "moves.h"
 #include "types.h"
 #include "zobrist.h"
+struct Undo {
+    Colored_Piece captured;
+    uint8_t castling_rights;
+    Square ep_square;
+    uint8_t fifty_clock;
+    uint64_t hash;
+    uint16_t fullmove_number;
+};
+
+struct NullUndo {
+    Square ep_square;
+    uint64_t hash;
+};
 
 struct Board {
     uint64_t hash;
@@ -45,6 +58,8 @@ struct Board {
         return false;
     }
 
+    Bitboard attackers_to(Square square, Bitboard occupancy) const;
+
     inline void put_piece(const Colored_Piece piece, const Square square) {
         mailbox[square] = piece;
         piece_bitboards[piece] |= (1ULL << square);
@@ -62,9 +77,13 @@ struct Board {
         hash ^= zobrist_pieces[piece][square];
     }
 
-    void make_move(Move m);
+    void make_move(Move m, Undo& u);
 
-    void make_null_move();
+    void unmake_move(Move m, const Undo &u);
+
+    void make_null_move(NullUndo& u);
+
+    void unmake_null_move(const NullUndo& u);
 
     [[nodiscard]] inline Square enemy_king_square() const {
         return static_cast<Square>(std::countr_zero(piece_bitboards[make_piece(static_cast<Color>(!color_to_move), KING)]));

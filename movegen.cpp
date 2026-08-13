@@ -245,7 +245,7 @@ void generate_moves(const Board& board, MoveList& moves) {
     generate_castling_moves(board, moves);
 }
 
-uint64_t perft(const Board& board, int depth) {
+uint64_t perft(Board& board, int depth) {
     if (!depth) {
         return 1;
     }
@@ -255,12 +255,14 @@ uint64_t perft(const Board& board, int depth) {
 
     for (int i = 0; i < moves.count; i++) {
         const Move move = moves.moves[i];
-        Board board_copy = board;
-        board_copy.make_move(move);
-        if (!board_copy.last_move_was_legal()) {
+        Undo u;
+        board.make_move(move, u);
+        if (!board.last_move_was_legal()) {
+            board.unmake_move(move, u);
             continue;
         }
-        nodes += perft(board_copy, depth-1);
+        nodes += perft(board, depth-1);
+        board.unmake_move(move, u);
     }
 
     return nodes;
@@ -268,10 +270,10 @@ uint64_t perft(const Board& board, int depth) {
 
 void handle_perft(const Board& board) {
     for (int i = 0; i <= 5; i++) {
-        Board board_copy = board;
+        Board perft_board = board;
         const auto start = std::chrono::steady_clock::now();
 
-        const uint64_t nodes = perft(board_copy, i);
+        const uint64_t nodes = perft(perft_board, i);
 
         const auto us = std::chrono::duration_cast<std::chrono::microseconds>(
                             std::chrono::steady_clock::now() - start).count();

@@ -25,7 +25,7 @@ void generate_castling_moves(const Board& board, MoveList& moves);
 
 void generate_captures(const Board& board, MoveList& moves);
 
-uint64_t perft(const Board& board, int depth);
+uint64_t perft(Board& board, int depth);
 
 void handle_perft(const Board& board);
 

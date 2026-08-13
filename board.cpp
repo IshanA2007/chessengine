@@ -178,22 +178,33 @@ void Board::print() const {
     cout << "Fullmove number: " << fullmove_number << '\n';
 }
 
-void Board::make_move(const Move m) {
+void Board::make_move(const Move m, Undo& u) {
     const Square from = from_square(m);
     const Square to = to_square(m);
     const int flag = flags(m);
     const Colored_Piece mover = mailbox[from];
     const Color us = color_to_move;
     const int offset = us == WHITE ? 8 : -8;
+
+    u.castling_rights = castling_rights;
+    u.ep_square = en_passant_square;
+    u.fifty_clock = fifty_clock;
+    u.fullmove_number = fullmove_number;
+    u.hash = hash;
+    u.captured = NO_PIECE;
     //move pieces bit
     remove_piece(from);
     if (is_capture(m)) {
+        Square capture_square;
         if (flag == EN_PASSANT) {
-            remove_piece(static_cast<Square>(to - offset));
+            capture_square = static_cast<Square>(to - offset);
         }
         else {
-            remove_piece(to);
+            capture_square = to;
+
         }
+        u.captured = mailbox[capture_square];
+        remove_piece(capture_square);
     }
 
     const Colored_Piece placed = is_promotion(m) ? make_piece(us, promotion_of(m)) : mover;
@@ -250,9 +261,59 @@ void Board::make_move(const Move m) {
     //assert(hash == compute_hash_from_scratch());
 }
 
-void Board::make_null_move() {
+void Board::unmake_move(Move m, const Undo& u) {
+    color_to_move = static_cast<Color>(!color_to_move);
     const Color us = color_to_move;
-    //flip side to move
+    const Square from = from_square(m);
+    const Square to = to_square(m);
+    const int offset = (us == WHITE) ? 8 : -8;
+
+    if (is_promotion(m)) {
+        remove_piece(to);
+        put_piece(make_piece(us, PAWN), from);
+    }
+    else {
+        const Colored_Piece moved = mailbox[to];
+        remove_piece(to);
+        put_piece(moved, from);
+    }
+
+    if (flags(m) == EN_PASSANT) {
+        put_piece(u.captured, static_cast<Square>(to-offset));
+    }
+    else if (is_capture(m)) {
+        put_piece(u.captured, to);
+    }
+
+    if (flags(m) == CASTLE_KINGSIDE) {
+        if (us == WHITE) {
+            remove_piece(F1); put_piece(WR, H1);
+        }
+        else {
+            remove_piece(F8); put_piece(BR, H8);
+        }
+    }
+    else if (flags(m) == CASTLE_QUEENSIDE) {
+        if (us == WHITE) {
+            remove_piece(D1); put_piece(WR, A1);
+        }
+        else {
+            remove_piece(D8); put_piece(BR, A8);
+        }
+    }
+
+    castling_rights = u.castling_rights;
+    fullmove_number = u.fullmove_number;
+    fifty_clock = u.fifty_clock;
+    en_passant_square = u.ep_square;
+    hash = u.hash;
+}
+
+void Board::make_null_move(NullUndo& u) {
+    u.ep_square = en_passant_square;
+    u.hash = hash;
+
+    const Color us = color_to_move;
     color_to_move = us == WHITE ? BLACK : WHITE;
     hash ^= zobrist_side;
 
@@ -260,6 +321,12 @@ void Board::make_null_move() {
         hash ^= zobrist_ep_file[file_of(en_passant_square)];
     }
     en_passant_square = NO_SQUARE;
+}
+
+void Board::unmake_null_move(const NullUndo& u) {
+    color_to_move = static_cast<Color>(!color_to_move);
+    en_passant_square = u.ep_square;
+    hash = u.hash;
 }
 
 uint64_t Board::compute_hash_from_scratch() const {
@@ -278,4 +345,22 @@ uint64_t Board::compute_hash_from_scratch() const {
         h ^= zobrist_side;
 
     return h;
+}
+
+Bitboard Board::attackers_to(const Square square, const Bitboard occupancy) const {
+    Bitboard result = 0;
+
+    result |= pawn_attacks[WHITE][square] & piece_bitboards[BP];
+    result |= pawn_attacks[BLACK][square] & piece_bitboards[WP];
+
+    result |= knight_attacks[square] & (piece_bitboards[WN] | piece_bitboards[BN]);
+    result |= king_attacks[square] & (piece_bitboards[WK] | piece_bitboards[BK]);
+
+    const Bitboard diagonal_attackers = piece_bitboards[WB] | piece_bitboards[WQ] | piece_bitboards[BB] | piece_bitboards[BQ];
+    const Bitboard line_attackers = piece_bitboards[WR] | piece_bitboards[WQ] | piece_bitboards[BR] | piece_bitboards[BQ];
+
+    result |= rook_attacks(square, occupancy) & line_attackers;
+    result |= bishop_attacks(square, occupancy) & diagonal_attackers;
+
+    return result;
 }

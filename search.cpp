@@ -18,6 +18,7 @@ static std::chrono::steady_clock::time_point g_search_start;
 
 static constexpr int MAX_PLY = 128;
 static constexpr int HISTORY_MAX = 16'000;
+static constexpr int LOSING_CAPTURE_BONUS = 80'000;
 static Move killers[MAX_PLY][2];
 static int history[2][64][64];
 
@@ -51,7 +52,13 @@ static void score_moves(const Board& board, const MoveList& moves, int* scores, 
             scores[i] = TT_BONUS_SCORE;
         }
         else if (is_capture(m) || is_promotion(m)) {
-            scores[i] = mvv_score_of(board, m);
+            if (is_promotion(m) || see(board, m) >= 0) {
+                scores[i] = mvv_score_of(board, m);
+            }
+            else {
+                scores[i] = LOSING_CAPTURE_BONUS + mvv_score_of(board, m) - CAPTURE_BONUS;
+            }
+
         }
         else if (m == killers[ply][0]) {
             scores[i] = 90'000;
@@ -65,7 +72,7 @@ static void score_moves(const Board& board, const MoveList& moves, int* scores, 
     }
 }
 
-int quiescence(const Board &board, int alpha, const int beta) {
+int quiescence(Board& board, int alpha, const int beta) {
     g_nodes++;
     const int cur_eval = eval(board);
 
@@ -97,12 +104,20 @@ int quiescence(const Board &board, int alpha, const int beta) {
 
 
         const Move m = moves.moves[i];
-        Board board_copy = board;
-        board_copy.make_move(m);
-        if (!board_copy.last_move_was_legal()) {
+
+        if (see(board, m) < 0) {
             continue;
         }
-        int score = -quiescence(board_copy, -beta, -alpha);
+
+        Undo u;
+        board.make_move(m, u);
+        if (!board.last_move_was_legal()) {
+            board.unmake_move(m, u);
+            continue;
+        }
+
+        const int score = -quiescence(board, -beta, -alpha);
+        board.unmake_move(m, u);
         if (score >= beta) {
             return score;
         }
@@ -116,7 +131,7 @@ int quiescence(const Board &board, int alpha, const int beta) {
 }
 
 
-static int minimax(const Board& board, const int depth, int alpha, const int beta, const int ply, const bool can_null) {
+static int minimax(Board& board, const int depth, int alpha, const int beta, const int ply, const bool can_null) {
     g_nodes++;
 
     if (board.fifty_clock >= 100) {
@@ -151,9 +166,10 @@ static int minimax(const Board& board, const int depth, int alpha, const int bet
 
     //null-move
     if (can_null && depth >= 3 && !in_check && has_pieces){
-        Board board_copy = board;
-        board_copy.make_null_move();
-        const int score = -minimax(board_copy, depth - 3, -beta, -beta + 1, ply + 1, false);
+        NullUndo nu;
+        board.make_null_move(nu);
+        const int score = -minimax(board, depth - 3, -beta, -beta + 1, ply + 1, false);
+        board.unmake_null_move(nu);
         if (score >= beta) {
             return score;
         }
@@ -183,31 +199,33 @@ static int minimax(const Board& board, const int depth, int alpha, const int bet
 
 
         const Move m = moves.moves[i];
-        Board board_copy = board;
-        board_copy.make_move(m);
-        if (!board_copy.last_move_was_legal()) {
+        Undo u;
+        board.make_move(m, u);
+        if (!board.last_move_was_legal()) {
+            board.unmake_move(m, u);
             continue;
         }
         legal++;
-        g_history[g_hist_count++] = board_copy.hash;
+        g_history[g_hist_count++] = board.hash;
 
         int move_score = 0;
 
         //late-move reduction
         bool needs_full_search = true;
-        if (i >= 4 && depth >= 3 && !is_capture(m) && !is_promotion(m) && !in_check && !board_copy.is_square_attacked(board_copy.king_square(), us)) { //late and not too shallow
+        if (i >= 4 && depth >= 3 && !is_capture(m) && !is_promotion(m) && !in_check && !board.is_square_attacked(board.king_square(), us)) { //late and not too shallow
             constexpr int red = 1; //tune later this is naive
-            move_score = -minimax(board_copy, depth-1-red, -beta, -alpha, ply+1, true);
+            move_score = -minimax(board, depth-1-red, -beta, -alpha, ply+1, true);
             if (move_score <= alpha) {
                 needs_full_search = false;
             }
         }
 
         if (needs_full_search) {
-            move_score = -minimax(board_copy, depth - 1, -beta, -alpha, ply+1, true);
+            move_score = -minimax(board, depth - 1, -beta, -alpha, ply+1, true);
         }
 
         g_hist_count--;
+        board.unmake_move(m, u);
         if (move_score > best_score) {
             best_score = move_score;
             best_move = m;
@@ -240,7 +258,7 @@ static int minimax(const Board& board, const int depth, int alpha, const int bet
     return best_score;
 }
 
-Move search_root(const Board& board, const int depth) {
+Move search_root(Board& board, const int depth) {
 
     MoveList moves;
     generate_moves(board, moves);
@@ -272,15 +290,17 @@ Move search_root(const Board& board, const int depth) {
         std::swap(scores[i], scores[best]);
 
         const Move m = moves.moves[i];
-        Board board_copy = board;
-        board_copy.make_move(m);
+        Undo u;
+        board.make_move(m, u);
 
-        if (!board_copy.last_move_was_legal()) {
+        if (!board.last_move_was_legal()) {
+            board.unmake_move(m, u);
             continue;
         }
-        g_history[g_hist_count++] = board_copy.hash;
-        const int score = -minimax(board_copy, depth-1, -INF_SCORE, -alpha, 1, true);
+        g_history[g_hist_count++] = board.hash;
+        const int score = -minimax(board, depth-1, -INF_SCORE, -alpha, 1, true);
         g_hist_count--;
+        board.unmake_move(m, u);
         if (score > alpha) {
             alpha = score;
             best_move = m;
@@ -314,9 +334,10 @@ Move search(const Board& board, const GoLimits& limits) {
 
     const int max_depth = limits.depth > 0 ? limits.depth : 12;
     Move best_move = NO_MOVE;
+    Board search_board = board;
     std::cout << "info string budget " << budget_ms << " elapsed " << elapsed_ms() << std::endl;
     for (int d = 1; d <= max_depth; d++) {
-        best_move = search_root(board, d);
+        best_move = search_root(search_board, d);
         if (budget_ms > 0 && elapsed_ms() > budget_ms / 2) break;
     }
     return best_move;

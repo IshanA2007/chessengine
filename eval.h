@@ -9,6 +9,7 @@
 constexpr int INF_SCORE = 1'000'000'000;
 constexpr int CHECKMATE_SCORE = -100'000;
 constexpr int TT_BONUS_SCORE = 1'000'000;
+constexpr int CAPTURE_BONUS = 100'000;
 
 static constexpr int piece_values[6] = {
     100,   // PAWN
@@ -143,4 +144,6 @@ inline constexpr int eg_table[6][64] = {
 int eval(const Board& board);
 
 int mvv_score_of(const Board& board, Move m);
+
+int see(const Board& board, Move m);
 #endif //CHESSENGINE_EVAL_H
