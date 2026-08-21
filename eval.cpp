@@ -29,7 +29,8 @@ int eval(const Board &board) {
     const int mg_score = middlegaminess[us] - middlegaminess[!us];
     const int eg_score = endgaminess[us] - endgaminess[!us];
     const int mg_phase = std::min(game_phase, 24);
-    return (mg_score * mg_phase + eg_score * (24 - mg_phase)) / 24;
+    const int score = (mg_score * mg_phase + eg_score * (24 - mg_phase)) / 24;
+    return std::clamp(score, -MATE_BOUND + 1, MATE_BOUND - 1);
 }
 
 int mvv_score_of(const Board &board, const Move m) {

@@ -6,6 +6,8 @@
 #include <vector>
 #include <algorithm>
 
+#include "eval.h"
+
 constexpr size_t TT_ENTRIES = 1ULL << 22; // 64 MB
 
 static std::vector<TTEntry> table;
@@ -22,13 +24,17 @@ static uint64_t slot(const uint64_t hash) {
     return hash & (TT_ENTRIES - 1);
 }
 
-bool tt_probe(const uint64_t hash, const int depth, const int alpha, const int beta, int &out_score, Move &out_move) {
+bool tt_probe(const uint64_t hash, const int depth, const int ply, const int alpha, const int beta, int &out_score, Move &out_move) {
     const TTEntry entry = table[slot(hash)];
     out_move = NO_MOVE;
 
     if (entry.key != hash) {
         return false; //this position isn't stored or relevant
     }
+
+    int s = entry.score;
+    if (s >=  MATE_BOUND) s -= ply;
+    else if (s <= -MATE_BOUND) s += ply;
 
     out_move = entry.best_move; //position is stored, so we have a best_move no matter what
 
@@ -38,24 +44,24 @@ bool tt_probe(const uint64_t hash, const int depth, const int alpha, const int b
     }
 
     if (entry.bound == BOUND_EXACT) {
-        out_score = entry.score;
+        out_score = s;
         return true;
     }
 
     if (entry.bound == BOUND_LOWER && entry.score >= beta) {
-        out_score = entry.score;
+        out_score = s;
         return true;
     }
 
     if (entry.bound == BOUND_UPPER && entry.score <= alpha) {
-        out_score = entry.score;
+        out_score = s;
         return true;
     }
 
     return false;
 }
 
-void tt_store(const uint64_t hash, const int depth, const int score, const Move best_move, const int alpha_original, const int beta) {
+void tt_store(const uint64_t hash, const int depth, const int ply, int score, const Move best_move, const int alpha_original, const int beta) {
     Bound bound;
     if (score >= beta) {
         bound = BOUND_LOWER;
@@ -66,6 +72,9 @@ void tt_store(const uint64_t hash, const int depth, const int score, const Move 
     else {
         bound = BOUND_EXACT;
     }
+
+    if (score >= MATE_BOUND) score += ply;
+    else if (score <= -MATE_BOUND) score -= ply;
 
     TTEntry entry = table[slot(hash)];
     entry.key = hash;

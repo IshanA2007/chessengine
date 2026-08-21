@@ -18,4 +18,6 @@ void handle_position(Board& board, std::istringstream& ss);
 
 void handle_go(const Board& board, std::istringstream& ss);
 
+void handle_bench(int depth);
+
 #endif //CHESSENGINE_UCI_H

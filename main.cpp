@@ -34,6 +34,7 @@ int main() {
         else if (cmd == "quit")     { break; }
         //non uci
         else if (cmd == "perft") { handle_perft(board);}
+        else if (cmd == "bench") { int d; if (!(ss >> d)) d = 10; handle_bench(d); }
     }
     return 0;
 }

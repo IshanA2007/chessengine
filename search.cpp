@@ -16,11 +16,26 @@ static uint64_t g_history[1024];
 static int g_hist_count = 0;
 static std::chrono::steady_clock::time_point g_search_start;
 
-static constexpr int MAX_PLY = 128;
 static constexpr int HISTORY_MAX = 16'000;
 static constexpr int LOSING_CAPTURE_BONUS = 80'000;
 static Move killers[MAX_PLY][2];
 static int history[2][64][64];
+
+//inloop abort
+static bool g_stop = false;
+static int64_t g_hard_ms = -1;
+
+static int64_t elapsed_ms() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - g_search_start).count();
+}
+
+static inline bool check_time() {
+    if (g_stop) return true;
+    if (g_hard_ms > 0 && (g_nodes & 2047) == 0 && elapsed_ms() >= g_hard_ms)
+        g_stop = true;
+    return g_stop;
+}
 
 static void age_history() {
     for (auto& color_plane : history)
@@ -40,10 +55,7 @@ static void clear_history() {
     std::memset(history, 0, sizeof(history));
 }
 
-static int64_t elapsed_ms() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now() - g_search_start).count();
-}
+
 
 static void score_moves(const Board& board, const MoveList& moves, int* scores, const Move tt_move, const int ply) {
     for (int i = 0; i < moves.count; i++) {
@@ -72,20 +84,29 @@ static void score_moves(const Board& board, const MoveList& moves, int* scores, 
     }
 }
 
-int quiescence(Board& board, int alpha, const int beta) {
+int quiescence(Board& board, int alpha, const int beta, const int ply) {
     g_nodes++;
-    const int cur_eval = eval(board);
-
-    if (cur_eval >= beta) {
-        return cur_eval;
+    if (check_time()) return 0;
+    if (ply >= MAX_PLY) {
+        return eval(board);
     }
 
-    if (cur_eval > alpha) {
-        alpha = cur_eval;
-    }
+    const bool in_check = board.is_square_attacked(
+        board.king_square(), static_cast<Color>(!board.color_to_move));
 
     MoveList moves;
-    generate_captures(board, moves);
+    if (in_check) {
+        generate_moves(board, moves);
+    }
+    else {
+        const int stand_pat = eval(board);
+        if (stand_pat >= beta) return stand_pat;
+        if (stand_pat > alpha) alpha = stand_pat;
+        generate_captures(board, moves);
+    }
+
+    int legal = 0;
+
     //MVV-LVA
     int scores[256];
     for (int i = 0; i < moves.count; i++)
@@ -105,7 +126,7 @@ int quiescence(Board& board, int alpha, const int beta) {
 
         const Move m = moves.moves[i];
 
-        if (see(board, m) < 0) {
+        if (!in_check && see(board, m) < 0) {
             continue;
         }
 
@@ -115,8 +136,9 @@ int quiescence(Board& board, int alpha, const int beta) {
             board.unmake_move(m, u);
             continue;
         }
+        legal++;
 
-        const int score = -quiescence(board, -beta, -alpha);
+        const int score = -quiescence(board, -beta, -alpha, ply+1);
         board.unmake_move(m, u);
         if (score >= beta) {
             return score;
@@ -124,6 +146,9 @@ int quiescence(Board& board, int alpha, const int beta) {
         if (score > alpha) {
             alpha = score;
         }
+    }
+    if (in_check && !legal) {
+        return -CHECKMATE_SCORE + ply;
     }
     return alpha;
 
@@ -133,6 +158,7 @@ int quiescence(Board& board, int alpha, const int beta) {
 
 static int minimax(Board& board, const int depth, int alpha, const int beta, const int ply, const bool can_null) {
     g_nodes++;
+    if (check_time()) return 0;
 
     if (board.fifty_clock >= 100) {
         return 0;
@@ -147,11 +173,11 @@ static int minimax(Board& board, const int depth, int alpha, const int beta, con
     Move tt_move = NO_MOVE;
     int tt_score;
 
-    if (tt_probe(board.hash, depth, alpha_original, beta, tt_score, tt_move)) {
+    if (tt_probe(board.hash, depth, ply, alpha_original, beta, tt_score, tt_move)) {
         return tt_score;
     }
     if (depth <= 0) {
-        return quiescence(board, alpha, beta);
+        return quiescence(board, alpha, beta, ply);
     }
 
     Color us = board.color_to_move;
@@ -226,6 +252,7 @@ static int minimax(Board& board, const int depth, int alpha, const int beta, con
 
         g_hist_count--;
         board.unmake_move(m, u);
+
         if (move_score > best_score) {
             best_score = move_score;
             best_move = m;
@@ -250,15 +277,17 @@ static int minimax(Board& board, const int depth, int alpha, const int beta, con
     }
 
     if (!legal) {
-        return in_check ? CHECKMATE_SCORE - depth : 0;
+        return in_check ? -CHECKMATE_SCORE + ply : 0;
+    }
+    if (!g_stop) {
+        tt_store(board.hash, depth, ply, best_score, best_move, alpha_original, beta);
     }
 
-    tt_store(board.hash, depth, best_score, best_move, alpha_original, beta);
 
     return best_score;
 }
 
-Move search_root(Board& board, const int depth) {
+bool search_root(Board& board, const int depth, Move& out_best) {
 
     MoveList moves;
     generate_moves(board, moves);
@@ -266,7 +295,7 @@ Move search_root(Board& board, const int depth) {
     int alpha = -INF_SCORE;
 
     Move tt_move = NO_MOVE; int ignored_score;
-    tt_probe(board.hash, 1000, -INF_SCORE, INF_SCORE, ignored_score, tt_move);
+    tt_probe(board.hash, 1000, 0, -INF_SCORE, INF_SCORE, ignored_score, tt_move);
 
 
 
@@ -292,7 +321,6 @@ Move search_root(Board& board, const int depth) {
         const Move m = moves.moves[i];
         Undo u;
         board.make_move(m, u);
-
         if (!board.last_move_was_legal()) {
             board.unmake_move(m, u);
             continue;
@@ -301,44 +329,66 @@ Move search_root(Board& board, const int depth) {
         const int score = -minimax(board, depth-1, -INF_SCORE, -alpha, 1, true);
         g_hist_count--;
         board.unmake_move(m, u);
+        if (g_stop) {
+            out_best = best_move;
+            return false;
+        }
         if (score > alpha) {
             alpha = score;
             best_move = m;
         }
     }
     if (best_move) {
-        tt_store(board.hash, depth, alpha, best_move, -INF_SCORE, INF_SCORE);
+        tt_store(board.hash, depth, 0 , alpha, best_move, -INF_SCORE, INF_SCORE);
     }
 
-    std::cout << "info depth " << depth << " nodes " << g_nodes << " score cp " << alpha << " pv " << move_to_string(best_move) << std::endl;
-    return best_move;
+    std::cout << "info depth " << depth << " nodes " << g_nodes << " score ";
+    if (alpha >= MATE_BOUND)
+        std::cout << "mate " << (CHECKMATE_SCORE - alpha + 1) / 2;
+    else if (alpha <= -MATE_BOUND)
+        std::cout << "mate " << -(CHECKMATE_SCORE + alpha) / 2;
+    else
+        std::cout << "cp " << alpha;
+    std::cout << " pv " << move_to_string(best_move) << std::endl;
+    out_best = best_move;
+    return true;
 }
 
 Move search(const Board& board, const GoLimits& limits) {
     g_nodes = 0;
     g_search_start = std::chrono::steady_clock::now();
+    g_stop  = false;
 
     clear_history();
     clear_killers();
 
-    int64_t budget_ms = -1;
+    int64_t soft_ms = -1;
+    g_hard_ms = -1;
+
     if (limits.movetime > 0) {
-        budget_ms = limits.movetime - 30;               // margin safety
+        soft_ms = g_hard_ms = limits.movetime - 30;
     } else {
         const int mytime = board.color_to_move == WHITE ? limits.wtime : limits.btime;
         const int myinc  = board.color_to_move == WHITE ? limits.winc  : limits.binc;
-        if (mytime > 0)
-            budget_ms = mytime / 25 + myinc / 2 - 30;
+        if (mytime > 0) {
+            soft_ms   = mytime / 25 + myinc / 2 - 30;
+            g_hard_ms = std::min<int64_t>(mytime / 4, mytime - 50);
+        }
     }
 
-
-    const int max_depth = limits.depth > 0 ? limits.depth : 12;
+    const int max_depth = limits.depth > 0 ? limits.depth : MAX_PLY - 1;
     Move best_move = NO_MOVE;
     Board search_board = board;
-    std::cout << "info string budget " << budget_ms << " elapsed " << elapsed_ms() << std::endl;
+
     for (int d = 1; d <= max_depth; d++) {
-        best_move = search_root(search_board, d);
-        if (budget_ms > 0 && elapsed_ms() > budget_ms / 2) break;
+        Move iter_move = NO_MOVE;
+        if (search_root(search_board, d, iter_move)) {
+            best_move = iter_move;
+        } else {
+            if (best_move == NO_MOVE) best_move = iter_move;
+            break;
+        }
+        if (soft_ms > 0 && elapsed_ms() > soft_ms / 2) break;
     }
     return best_move;
 }
@@ -350,6 +400,10 @@ void history_reset(const uint64_t root_hash) {
 
 void history_push(const uint64_t h) {
     g_history[g_hist_count++] = h;
+}
+
+uint64_t nodes_searched() {
+    return g_nodes;
 }
 
 

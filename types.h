@@ -11,6 +11,8 @@ using Bitboard = uint64_t;
 
 const std::string START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+constexpr int MAX_PLY = 128;
+
 // 0 -> a1, 63 -> h8
 enum Square {
     A1, B1, C1, D1, E1, F1, G1, H1,

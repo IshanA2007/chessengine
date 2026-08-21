@@ -6,9 +6,11 @@
 #define CHESSENGINE_EVAL_H
 #include "board.h"
 
-constexpr int INF_SCORE = 1'000'000'000;
-constexpr int CHECKMATE_SCORE = -100'000;
+
+constexpr int CHECKMATE_SCORE = 32'000;
+constexpr int INF_SCORE = CHECKMATE_SCORE+1;
 constexpr int TT_BONUS_SCORE = 1'000'000;
+constexpr int MATE_BOUND = CHECKMATE_SCORE - MAX_PLY;
 constexpr int CAPTURE_BONUS = 100'000;
 
 static constexpr int piece_values[6] = {

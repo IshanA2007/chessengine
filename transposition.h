@@ -23,9 +23,9 @@ enum Bound : uint8_t {
 };
 
 //modifies out_score and out_move
-bool tt_probe(uint64_t hash, int depth, int alpha, int beta, int& out_score, Move& out_move);
+bool tt_probe(uint64_t hash, int depth, int ply, int alpha, int beta, int& out_score, Move& out_move);
 
-void tt_store(uint64_t hash, int depth, int score, Move best_move, int alpha_original, int beta);
+void tt_store(uint64_t hash, int depth, int ply, int score, Move best_move, int alpha_original, int beta);
 
 void tt_init();
 
